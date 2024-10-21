@@ -2,18 +2,21 @@ import pandas as pd
 
 from typing import Tuple, Union, List
 
+from sklearn.ensemble import RandomForestClassifier
+
+
 class DelayModel:
 
     def __init__(
         self
     ):
-        self._model = None # Model should be saved in this attribute.
+        self._model = RandomForestClassifier() # Model should be saved in this attribute.
 
+    @staticmethod
     def preprocess(
-        self,
-        data: pd.DataFrame,
-        target_column: str = None
-    ) -> Union(Tuple[pd.DataFrame, pd.DataFrame], pd.DataFrame):
+            data: pd.DataFrame,
+        target_column: str = "None"
+    ) -> Union[Tuple[pd.DataFrame, pd.DataFrame], pd.DataFrame]:
         """
         Prepare raw data for training or predict.
 
@@ -26,7 +29,10 @@ class DelayModel:
             or
             pd.DataFrame: features.
         """
-        return
+        features = data.drop(target_column, axis=1)
+        target = data[target_column]
+
+        return features, target
 
     def fit(
         self,
@@ -40,7 +46,7 @@ class DelayModel:
             features (pd.DataFrame): preprocessed data.
             target (pd.DataFrame): target.
         """
-        return
+        self._model.fit(features, target)
 
     def predict(
         self,
@@ -55,4 +61,4 @@ class DelayModel:
         Returns:
             (List[int]): predicted targets.
         """
-        return
+        return self._model.predict(features).tolist()
