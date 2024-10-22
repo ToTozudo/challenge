@@ -6,8 +6,10 @@ from datetime import datetime
 
 from typing import Tuple, Union, List
 
-from sklearn.ensemble import RandomForestClassifier
-
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import confusion_matrix, classification_report
+from sklearn.model_selection import train_test_split
+from sklearn.utils import shuffle
 
 
 class DelayModel:
@@ -15,9 +17,10 @@ class DelayModel:
     def __init__(
         self
     ):
-        self._model = RandomForestClassifier() # Model should be saved in this attribute.
+        self._model = LogisticRegression() # Model should be saved in this attribute.
+        self._delays = {}
 
-    def get_period_day(self, date):
+    def get_period_day(self, date) -> str:
         """
         Get period of the day based on the time of the day.
 
@@ -47,7 +50,7 @@ class DelayModel:
         ):
             return 'noche'
 
-    def is_high_season(self, fecha):
+    def is_high_season(self, fecha)->int:
         """
                 Get if is a high season based on the date.
 
@@ -76,7 +79,7 @@ class DelayModel:
         else:
             return 0
 
-    def get_min_diff(self, data):
+    def get_min_diff(self, data)->float:
         """
                         Get the minutes difference based on time of the date of departure and arrival.
 
@@ -91,6 +94,25 @@ class DelayModel:
         min_diff = ((fecha_o - fecha_i).total_seconds()) / 60
 
         return min_diff
+
+    def get_rate_from_column(self, data, column):
+        for _, row in data.iterrows():
+            if row['delay'] == 1:
+                if row[column] not in self._delays:
+                    self._delays[row[column]] = 1
+                else:
+                    self._delays[row[column]] += 1
+        total = data[column].value_counts().to_dict()
+
+        rates = {}
+        for name, total in total.items():
+            if name in self._delays:
+                rates[name] = round(total / self._delays[name], 2)
+            else:
+                rates[name] = 0
+
+        return pd.DataFrame.from_dict(data=rates, orient='index', columns=['Tasa (%)'])
+
 
     def preprocess(self,
             data: pd.DataFrame,
@@ -148,3 +170,24 @@ class DelayModel:
             (List[int]): predicted targets.
         """
         return self._model.predict(features).tolist()
+
+    def data_split(self, data):
+        training_data = shuffle(data[['OPERA', 'MES', 'TIPOVUELO', 'SIGLADES', 'DIANOM', 'delay']], random_state=111)
+        features = pd.concat([
+            pd.get_dummies(data['OPERA'], prefix='OPERA'),
+            pd.get_dummies(data['TIPOVUELO'], prefix='TIPOVUELO'),
+            pd.get_dummies(data['MES'], prefix='MES')],
+            axis=1
+        )
+        target = data['delay']
+        x_train, x_test, y_train, y_test = train_test_split(features, target, test_size=0.33, random_state=42)
+        return x_train, x_test, y_train, y_test
+
+    def logistic_regression_model(self, x_train, y_train, x_test, y_test):
+        reg_model = LogisticRegression()
+        reg_model.fit(x_train, y_train)
+        reg_y_preds = reg_model.predict(x_test)
+        print(confusion_matrix(y_test, reg_y_preds))
+        print(classification_report(y_test, reg_y_preds))
+
+
